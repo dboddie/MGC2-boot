@@ -9,11 +9,6 @@ for name in "MMFS.rom"; do
     fi
 done
 
-# Create .inf files in case the files are missing those.
-python -c '
-open("resources/TITLE.inf", "w").write("$.TITLE 2e00 2e00 %x" % len(open("resources/TITLE").read()))
-'
-
 ophis -o resources/COPYFN asm/copyrom.oph
 python tools/pad_rom.py
 

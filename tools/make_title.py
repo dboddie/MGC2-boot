@@ -150,3 +150,6 @@ if __name__ == "__main__":
     
     # Write the uncompressed title data to a file for other tools to use.
     open("resources/TITLE", "wb").write("".join(map(chr, fe08_data + fe09_data)) + mgctitle_sprite)
+
+    # Create .inf files in case the files are missing those.
+    open("resources/TITLE.inf", "w").write("$.TITLE 2e00 2e00 %x" % len(open("resources/TITLE").read()))
