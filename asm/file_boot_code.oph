@@ -1,0 +1,39 @@
+; Copyright (C) 2020 David Boddie <david@boddie.org.uk>
+;
+; This program is free software: you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation, either version 3 of the License, or
+; (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+.org $1900
+
+boot_code:
+
+lda #21
+ldx #0
+jsr $fff4       ; (OSBYTE 0x21,0 - flush keyboard buffer)
+lda #$8a
+ldx #0          ; (keyboard buffer)
+ldy #$89        ; (fn key 9)
+jsr $fff4       ; (OSBYTE 0x8a - insert character into buffer)
+ldx #<key9_text
+ldy #>key9_text
+jsr $fff7       ; (OSCLI - KEY9 <command>|M)
+ldx #<basic_text
+ldy #>basic_text
+jmp $fff7       ; (OSCLI - BASIC)
+
+basic_text:
+.byte "BASIC", 13
+
+; Define a function key shortcut to show the title screen.
+key9_text:
+.byte "KEY9 ", "*MGC2|M", 13
