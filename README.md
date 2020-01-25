@@ -8,7 +8,7 @@ of the Mega Games Cartridge 2 by Retro Hardware.
 The build process is run from the command line using a shell like `bash` or
 possibly `dash`. The process requires Python 2 and the Ophis 6502 assembler.
 
- * Place the ready-to-use `MMFS` ROM file in the `resources` directory.
+ * Place the ready-to-use `MMFS.rom` ROM file in the `resources` directory.
  * From the root directory of the repository, run the `build.sh` script.
    This should create a ROM file, `MGC2.rom`, in the repository root.
 
