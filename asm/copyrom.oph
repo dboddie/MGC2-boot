@@ -15,6 +15,13 @@
 
 .org $1000
 
+lda $fcd2
+and #$80
+cmp #$80
+bne load_master
+
+; Electron
+
 lda $f4
 sta $70     ; Store the ROM number/bank to help select the accompanying RAM.
 
@@ -26,6 +33,26 @@ eor #1      ; Select the adjacent bank to the ROM bank in the pair of banks
             ; exposed by the cartridge.
 sta $f4
 sta $fe05
+
+jsr copy_mmfs
+
+lda #$82    ; Write an entry into the ROM table.
+ldx $f4
+sta $2a0,x
+
+jmp boot_code
+
+load_master:
+
+; TODO: Use SRLOAD or page in the sideways RAM.
+
+brk
+jsr copy_mmfs
+jmp boot_code
+
+; Common copying routine
+
+copy_mmfs:
 
 lda #<data
 sta $70
@@ -57,11 +84,9 @@ copy:
     bne copy
 
 cli
+rts
 
 boot_code:
-
-lda #$82
-sta $2a1
 
 lda #$8f        ; service call
 ldx #$12        ; initialise filing system
