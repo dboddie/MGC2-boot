@@ -1,9 +1,9 @@
 # Mega Games Cartridge 2
 
-This repository contains files and tools for the menu and hardware development
-of the Mega Games Cartridge 2 by Retro Hardware.
+This repository contains files and tools for the boot ROM for the Mega Games
+Cartridge 2 by Retro Hardware.
 
-## Building the Menu ROM
+## Building the Boot ROM
 
 The build process is run from the command line using a shell like `bash` or
 possibly `dash`. The process requires Python 2 and the Ophis 6502 assembler.
