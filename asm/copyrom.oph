@@ -15,11 +15,15 @@
 
 .org $1000
 
+lda $f4
+sta $70     ; Store the ROM number/bank to help select the accompanying RAM.
+
 lda #12
 sta $f4
 sta $fe05
-lda #1      ; ROM to select - this could be 3 instead, depending on the cartridge
-            ; slot in use
+lda $70
+eor #1      ; Select the adjacent bank to the ROM bank in the pair of banks
+            ; exposed by the cartridge.
 sta $f4
 sta $fe05
 

@@ -184,9 +184,7 @@ service_command:
 
     skip_mgc_code:
 
-    lda #$ff        ; Blank the palette.
-    sta $fe08
-    sta $fe09
+    jsr blank_palette
 
     lda #22
     jsr $ffee
@@ -194,12 +192,11 @@ service_command:
     jsr $ffee
 
     ldx #2
-    jsr show_message
+    jsr print_loop
 
     ldx #2          ; Load the file at index 1 (COPYROM).
     jsr load_file
 
-    cli
     jmp $1000
 
     ; Only for use if we want to exit cleanly:
@@ -861,6 +858,7 @@ main_loop:
 
 end_loop:
 
+    cli
     rts
 
 calibrate:
@@ -932,6 +930,9 @@ block_scanlines:
 show_message:
 
     jsr print_loop
+    jmp blank_palette
+
+blank_palette:
 
     lda #$ff                ; Blank the palette.
     sta $fe08
