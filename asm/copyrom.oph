@@ -25,8 +25,6 @@ bne load_master
 lda #1
 sta $fcd1   ; Enable RAM in the higher priority slot.
 
-sta $fcd3   ; Inhibit bank switching for the ROM/RAM slots.
-
 lda $f4
 sta $70     ; Store the ROM number/bank to help select the accompanying RAM.
 
