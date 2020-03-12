@@ -1,0 +1,82 @@
+.org $1000
+
+; ROM cartridge slots (back: 0 and 1, front: 2 and 3)
+
+lda #1
+sta $fcd1   ; Enable RAM in the higher priority slot (1 or 3).
+
+; Front slot
+lda #3
+jsr copy_rom
+
+; Back slot
+;lda #1
+;jsr copy_rom
+
+boot_code:
+
+lda #$8f        ; service call
+ldx #$12        ; initialise filing system
+ldy #$04        ; look for DFS
+jsr $fff4
+
+lda #$8f        ; service call
+ldx #$03        ; auto-boot
+ldy #$00        ; look for !BOOT
+jmp $fff4
+
+copy_rom:
+
+sei
+
+sta $70
+
+lda #12
+sta $f4
+sta $fe05
+lda $70         ; Use the bank specified to this routine.
+sta $f4
+sta $fe05
+
+jsr copy_mmfs
+
+lda #$82    ; Write an entry into the ROM table.
+ldx $f4
+sta $2a0,x
+
+copy_mmfs:
+
+lda #<data
+sta $70
+lda #>data
+sta $71
+lda #0
+sta $72
+lda #$80
+sta $73
+
+ldy #0
+
+copy:
+    lda ($70),y
+    sta ($72),y
+
+    inc $70
+    bne copy_0
+    inc $71
+
+    copy_0:
+    inc $72
+    bne copy
+    inc $73
+
+    lda $73
+    cmp #$c0
+    bne copy
+
+cli
+rts
+
+; MMFS ROM data is appended after this label:
+
+data:
