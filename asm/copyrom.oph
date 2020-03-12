@@ -15,12 +15,15 @@
 
 .org $1000
 
-lda $fcd2
-and #$80
-cmp #$80
+lda #0
+ldx #1
+jsr $fff4
+cpx #0
 bne load_master
 
 ; Electron
+
+sei
 
 lda #1
 sta $fcd1   ; Enable RAM in the higher priority slot.
@@ -66,7 +69,6 @@ sta $72
 lda #$80
 sta $73
 
-sei
 ldy #0
 
 copy:
