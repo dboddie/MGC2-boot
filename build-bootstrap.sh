@@ -2,8 +2,8 @@
 
 set -e
 
-if [ -z "$1" ]; then
-    echo "Usage: `basename $0` <ROM file>"
+if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Usage: `basename $0` <ROM file> <UEF file>"
     exit 1
 fi
 
@@ -21,5 +21,5 @@ python -c '
 open("resources/BOOTSTRAP.inf", "w").write("$.BOOTSTRAP 1000 1000 %x" % len(open("resources/BOOTSTRAP").read()))
 '
 
-UEFtrans.py BOOT.uef new Electron 0
-UEFtrans.py BOOT.uef append resources/BOOTSTRAP
+UEFtrans.py "$2" new Electron 0
+UEFtrans.py "$2" append resources/BOOTSTRAP

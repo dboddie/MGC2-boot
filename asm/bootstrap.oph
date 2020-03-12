@@ -6,12 +6,12 @@ lda #1
 sta $fcd1   ; Enable RAM in the higher priority slot (1 or 3).
 
 ; Front slot
-lda #3
-jsr copy_rom
+;lda #3
+;jsr copy_rom
 
 ; Back slot
-;lda #1
-;jsr copy_rom
+lda #1
+jsr copy_rom
 
 boot_code:
 
