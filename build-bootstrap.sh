@@ -2,9 +2,13 @@
 
 set -e
 
+if [ -z "$1" ]; then
+    echo "Usage: `basename $0` <ROM file>"
+    exit 1
+fi
+
 ophis -o resources/temp asm/bootstrap.oph
-#cp resources/MGCSRMN.rom resources/temp2
-cp resources/MMFS.rom resources/temp2
+cp "$1" resources/temp2
 python -c '
 import os
 padding = 16384 - os.stat("resources/temp2").st_size
