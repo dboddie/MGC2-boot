@@ -232,14 +232,14 @@ service_command:
     ldx #2          ; Load the file at index 1 (COPYROM).
     jsr load_file
 
+    pla
+    tax
+    pla
+    tay
+
     jmp $1000
 
     ; Only for use if we want to exit cleanly:
-    ;pla
-    ;tax
-    ;pla
-    ;tay
-
     ;lda #0
     ;rts
 

@@ -10,8 +10,10 @@ for name in "MMFS.rom"; do
 done
 
 ophis -o resources/COPYFN asm/copyrom.oph
-python tools/pad_rom.py
 
+# Pad the MMFS ROM.
+python tools/pad_rom.py
+# Append it to the copyrom binary so it is used as the bootstrap payload.
 cat resources/COPYFN resources/MMFS.rom > resources/COPYROM
 rm resources/COPYFN
 

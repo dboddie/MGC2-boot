@@ -521,6 +521,7 @@ if __name__ == "__main__":
         "rom name": '.byte "MGC2", 13',
         }
     
+    # Include the title screen and the bootstrap program.
     files = ["TITLE", "COPYROM"]
     decomp_addrs = [0x2e00, 0x1000]
     rom_file = "MGC2.rom"
