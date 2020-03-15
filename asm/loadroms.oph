@@ -191,10 +191,6 @@ read_file_loop:
         cmp #$c0
         bne copy
 
-    lda $2006           ; Copy the ROM type into the ROM table.
-    ldx $f4
-    sta $2a0,x
-
     cli
 
     inc roms_read
@@ -227,17 +223,45 @@ boot_code:
 
 boot:
 
-    ldx old_rom         ; Clear the ROM entry for the ROM paged in when this
-    lda #0              ; file was loaded, assuming it was the filing system.
-    sta $2a0,x
+    sei
 
-    lda #141            ; *ROM
-    jsr $fff4
+    ldx old_rom
+    lda #0              ; Clear the ROM entry for the ROM paged in when this
+    sta $2a0,x          ; file was loaded, assuming it was the filing system.
 
-    lda #$8f            ; Auto-boot
-    ldx #3
-    ldy #0
-    jmp $fff4
+    ; Write the entries for the ROM(s) copied into sideways RAM.
+
+    lda rom_number      ; After reading one ROM the value was changed to refer
+    eor #1              ; to the companion bank, so change it back.
+    tax
+    ldy roms_read
+
+    write_entries:
+
+        stx $f4             ; Select the ROM bank.
+        stx $fe05
+
+        lda $8006           ; Copy the ROM type into the ROM table.
+        sta $2a0,x
+
+        txa
+        eor #1
+        tax
+
+        dey
+        cpy #0
+        bne write_entries
+
+    cli
+    jmp ($fffc)
+
+;    lda #141            ; *ROM
+;    jsr $fff4
+;
+;    lda #$8f            ; Auto-boot
+;    ldx #3
+;    ldy #0
+;    jmp $fff4
 
 file_block:
 .byte 0, 0          ; address of name string
