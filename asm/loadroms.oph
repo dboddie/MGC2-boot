@@ -222,7 +222,7 @@ finish:
 
 boot_code:              ; This doesn't appear to work.
                         ; The filing system selection and booting commands must
-                        ; be done after this program has run.
+                        ; be done from BASIC after this program has run.
 
     lda roms_read
     cmp #1
