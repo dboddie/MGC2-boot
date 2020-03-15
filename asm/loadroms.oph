@@ -124,8 +124,7 @@ read_file_loop:
     lda #$20
     sta [load_address + 1]
 
-    ; Load the file into memory.
-    lda #255
+    lda #255                ; Load the file into memory.
     ldx #<file_block
     ldy #>file_block
     jsr $ffdd
@@ -212,6 +211,12 @@ read_file_loop:
 
 finish:
 
+boot_code:
+
+    lda roms_read       ; If one or more ROMs were loaded then boot them.
+    cmp #1
+    bcs boot
+
     sei
     lda old_rom         ; Restore the previously paged ROM.
     sta $f4
@@ -220,21 +225,16 @@ finish:
 
     rts
 
-boot_code:              ; This doesn't appear to work.
-                        ; The filing system selection and booting commands must
-                        ; be done from BASIC after this program has run.
-
-    lda roms_read
-    cmp #1
-    bcs +
-    rts
-
 boot:
 
-*   lda #141            ; *ROM
+    ldx old_rom         ; Clear the ROM entry for the ROM paged in when this
+    lda #0              ; file was loaded, assuming it was the filing system.
+    sta $2a0,x
+
+    lda #141            ; *ROM
     jsr $fff4
 
-    lda #$8f            ; Auto-boot from ROMFS.
+    lda #$8f            ; Auto-boot
     ldx #3
     ldy #0
     jmp $fff4
