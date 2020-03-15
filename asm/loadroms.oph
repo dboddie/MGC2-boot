@@ -17,8 +17,11 @@
 
 .alias cli_block $70
 .alias rom_number $74
-.alias cli_y $75
-.alias bank_address $76
+.alias old_rom $75
+.alias cli_y $76
+.alias bank_address $77
+.alias roms_read $78
+.alias cli_index $79
 
 ; Get the address of the command line. This doesn't work for the cassette
 ; filing system.
@@ -31,6 +34,7 @@ jsr $ffda
 ; Read the ROM number as a single digit hexadecimal number.
 ldy #0
 lda (cli_block),y
+iny
 
 cmp #48                     ; < "0" -> exit
 bcc exit
@@ -42,7 +46,20 @@ cmp #65                     ; >= "A"
 bcs store_rom_number_A_to_F
 
 exit:
+
+ldx #0
+exit_loop:
+
+    lda exit_message,x
+    jsr $ffee
+    inx
+    cmp #10
+    bne exit_loop
+
 rts
+
+exit_message:
+.byte "No ROM number specified.", 13, 10
 
 store_rom_number_A_to_F:
 ; 65 <= byte < 71
@@ -56,121 +73,223 @@ clc
 
 sta rom_number
 
-iny
-lda (cli_block),y
-cmp #32                     ; Expect a space.
-bne exit
-
-iny
-sty cli_y
-
-name_loop:
-
-    lda (cli_block),y
-    cmp #32
-    beq name_loop_end
-    cmp #13
-    beq name_loop_end
-    iny
-    jmp name_loop
-    
-name_loop_end:
-cpy #2
-beq exit
-
-; Ensure that the file name is terminated in the buffer.
-lda #13
-sta (cli_block),y
-
-; Store the address of the file name in the file block.
-clc
-lda cli_y
-adc cli_block
-sta file_block
-lda [cli_block + 1]
-adc #0
-sta [file_block + 1]
-clc
-
-; Load the file into memory.
-lda #255
-ldx #<file_block
-ldy #>file_block
-jsr $ffdd
-
-; Disable interrupts until we have selected the sideways RAM and ROM bank.
-sei
-
-; Make the corresponding bank of sideways RAM visible.
-lda rom_number
-and #1
-bne high_bank
-
-lda #1
-sta $fcd0
-jmp select_rom
-
-high_bank:
-
-lda #1
-sta $fcd1
-
-select_rom:
-
 lda $f4
-pha
+sta old_rom             ; Also store the currently paged ROM bank.
 
-lda #12
-sta $f4
-sta $fe05
-lda rom_number
-sta $f4
-sta $fe05
+; Read file names.
 
-copy_rom:
+lda #0
+sta roms_read
 
-lda #$00
-sta $70
-lda #$20
-sta $71
-lda #$00
-sta $72
-lda #$80
-sta $73
+read_file_loop:
 
-ldy #0
+    jsr skip_spaces     ; X=number of spaces, updates Y to after the spaces
 
-copy:
-    lda ($70),y
-    sta ($72),y
+    cpx #1              ; Expect at least one space.
+    bcs +
+    jmp finish
 
-    inc $70
-    bne copy_0
-    inc $71
+*   sty cli_y           ; Store the index to the start of the first argument.
+    
+    name_loop:
 
-    copy_0:
-    inc $72
-    bne copy
-    inc $73
+        lda (cli_block),y
+        cmp #32
+        beq name_loop_end
+        cmp #13
+        beq name_loop_end
+        iny
+        jmp name_loop
 
-    lda $73
-    cmp #$c0
-    bne copy
+    name_loop_end:
+    cpy cli_y
+    bne +
+    jmp finish
 
-lda #$82    ; Write an entry into the ROM table.
-ldx $f4
-sta $2a0,x
+    ; Store the index into the command line.
+*   sty cli_index
 
-pla             ; Restore the previously paged ROM.
-sta $f4
-sta $fe05
+    jsr print_file_name
 
-cli
-rts
+    ; Store the address of the file name in the file block.
+    clc
+    lda cli_y
+    adc cli_block
+    sta file_block
+    lda [cli_block + 1]
+    adc #0
+    sta [file_block + 1]
+    clc
+
+    lda #$20
+    sta [load_address + 1]
+
+    ; Load the file into memory.
+    lda #255
+    ldx #<file_block
+    ldy #>file_block
+    jsr $ffdd
+
+    ; Disable interrupts until we have selected the sideways RAM and ROM bank,
+    ; and copied the ROM data into sideways RAM.
+    sei
+
+    ; Make the corresponding bank of sideways RAM visible.
+    lda rom_number
+    and #1
+    bne high_bank
+
+    lda #1
+    sta $fcd0
+    jmp select_rom
+
+    high_bank:
+
+    lda #1
+    sta $fcd1
+
+    select_rom:
+
+    lda roms_read
+    cmp #0
+    bcs +
+
+    lda #12
+    sta $f4
+    sta $fe05
+
+*   lda rom_number
+    sta $f4
+    sta $fe05
+
+    copy_rom:
+
+    lda #$00
+    sta $80
+    lda #$20
+    sta $81
+    lda #$00
+    sta $82
+    lda #$80
+    sta $83
+
+    ldy #0
+
+    copy:
+        lda ($80),y
+        sta ($82),y
+
+        inc $80
+        bne copy_0
+        inc $81
+
+        copy_0:
+        inc $82
+        bne copy
+        inc $83
+
+        lda $83
+        cmp #$c0
+        bne copy
+
+    lda $2006           ; Copy the ROM type into the ROM table.
+    ldx $f4
+    sta $2a0,x
+
+    cli
+
+    inc roms_read
+    lda roms_read
+    cmp #2
+    bcs finish
+
+    lda rom_number      ; Select the companion ROM bank for the next file.
+    eor #1
+    sta rom_number
+
+    ldy cli_index       ; Restore the index into the command line.
+    jmp read_file_loop
+
+finish:
+
+    sei
+    lda old_rom         ; Restore the previously paged ROM.
+    sta $f4
+    sta $fe05
+    cli
+
+    rts
+
+boot_code:              ; This doesn't appear to work.
+                        ; The filing system selection and booting commands must
+                        ; be done after this program has run.
+
+    lda roms_read
+    cmp #1
+    bcs +
+    rts
+
+boot:
+
+*   lda #141            ; *ROM
+    jsr $fff4
+
+    lda #$8f            ; Auto-boot from ROMFS.
+    ldx #3
+    ldy #0
+    jmp $fff4
 
 file_block:
 .byte 0, 0          ; address of name string
-.byte 0, $20, 0, 0  ; load address
+load_address:
+.byte 0, 0, 0, 0    ; load address
 .byte 0, 0, 0, 0    ; execution address
-.byte 0, $20, 0, 0  ; length of file
-.byte 0, $80, 0, 0  ; end address of file
+.byte 0, 0, 0, 0    ; length of file
+.byte 0, 0, 0, 0    ; end address of file
+
+skip_spaces:
+
+    ldx #0
+    skip_spaces_loop:
+
+        lda (cli_block),y
+        cmp #32
+        bne skip_spaces_end
+        iny
+        inx
+        jmp skip_spaces_loop
+
+    skip_spaces_end:
+    rts
+
+print_file_name:
+
+    ldx #0
+    print_loop:
+        lda loading,x
+        jsr $ffee
+        inx
+        cpx #[loading_end - loading]
+        bne print_loop
+
+    ldy cli_y
+
+    print_name_loop:
+
+        lda (cli_block),y
+        jsr $ffee
+        iny
+        cpy cli_index
+        bne print_name_loop
+
+    jmp crlf
+
+loading:
+.byte "Loading "
+loading_end:
+
+crlf:
+    lda #13
+    jsr $ffee
+    lda #10
+    jmp $ffee
