@@ -5,13 +5,26 @@ import makedfs
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 3:
-        sys.stderr.write("Usage: %s <file>... <SSD file>\n" % sys.argv[0])
+    if len(sys.argv) != 3:
+        sys.stderr.write("Usage: %s <index file> <SSD file>\n" % sys.argv[0])
         sys.exit(1)
     
-    file_names = sys.argv[1:-1]
-    ssd_file = sys.argv[-1]
+    index_file = sys.argv[1]
+    ssd_file = sys.argv[2]
     ssd_exists = os.path.exists(ssd_file)
+    
+    # Read the index file and create a list of files and their new names.
+    file_names = []
+    
+    for line in open(index_file).readlines():
+        line = line.strip()
+        if not line: break
+        if line.startswith("#"): continue
+        
+        file_name, name, load, exec_ = line.split()
+        if "." not in name:
+            name = "$." + name
+        file_names.append((file_name, name, int(load, 16), int(exec_, 16)))
     
     d = makedfs.Disk()
     if ssd_exists:
@@ -22,11 +35,10 @@ if __name__ == "__main__":
     c = d.catalogue()
     title, files = c.read()
     
-    for file_name in file_names:
+    for file_name, name, load, exec_ in file_names:
     
-        name = "$." + os.path.split(file_name)[1][:7]
         data = open(file_name, "rb").read()
-        files.append(makedfs.File(name, data, 0x2000, 0x2000, len(data)))
+        files.append(makedfs.File(name, data, load, exec_, len(data)))
     
     c.write(title, files)
     
