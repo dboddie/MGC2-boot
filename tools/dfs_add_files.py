@@ -49,7 +49,10 @@ if __name__ == "__main__":
         d.new()
     
     c = d.catalogue()
-    old_title, files = c.read()
+    if ssd_exists:
+        old_title, files = c.read()
+    else:
+        files = []
     
     for file_name, name, load, exec_ in file_names:
     
