@@ -15,16 +15,32 @@ if __name__ == "__main__":
     
     # Read the index file and create a list of files and their new names.
     file_names = []
+    boot_option = 0
+    title = ""
     
     for line in open(index_file).readlines():
+    
         line = line.strip()
         if not line: break
-        if line.startswith("#"): continue
+        
+        if line.startswith("#"):
+            metadata = line.lstrip("#").lstrip()
+            if metadata.lower().startswith("title:"):
+                title = metadata[6:].lstrip()
+            continue
         
         file_name, name, load, exec_ = line.split()
+        load, exec_ = int(load, 16), int(exec_, 16)
+        
+        if name == "!BOOT":
+            if exec_ == 0:
+                boot_option = 3
+            else:
+                boot_option = 1
+        
         if "." not in name:
             name = "$." + name
-        file_names.append((file_name, name, int(load, 16), int(exec_, 16)))
+        file_names.append((file_name, name, load, exec_))
     
     d = makedfs.Disk()
     if ssd_exists:
@@ -33,13 +49,14 @@ if __name__ == "__main__":
         d.new()
     
     c = d.catalogue()
-    title, files = c.read()
+    old_title, files = c.read()
     
     for file_name, name, load, exec_ in file_names:
     
         data = open(file_name, "rb").read()
         files.append(makedfs.File(name, data, load, exec_, len(data)))
     
+    c.boot_option = boot_option
     c.write(title, files)
     
     if not ssd_exists:
