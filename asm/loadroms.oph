@@ -22,6 +22,7 @@
 .alias bank_address $77
 .alias roms_read $78
 .alias cli_index $79
+.alias old_rom_overwritten $7a
 
 ; Get the address of the command line. This doesn't work for the cassette
 ; filing system.
@@ -80,6 +81,7 @@ sta old_rom             ; Also store the currently paged ROM bank.
 
 lda #0
 sta roms_read
+sta old_rom_overwritten
 
 read_file_loop:
 
@@ -135,19 +137,7 @@ read_file_loop:
 
     ; Make the corresponding bank of sideways RAM visible.
     lda rom_number
-    and #1
-    bne high_bank
-
-    lda #1
-    sta $fcd0
-    jmp select_rom
-
-    high_bank:
-
-    lda #1
-    sta $fcd1
-
-    select_rom:
+    jsr select_ram
 
     lda roms_read
     cmp #0
@@ -160,6 +150,12 @@ read_file_loop:
 *   lda rom_number
     sta $f4
     sta $fe05
+
+    cmp old_rom             ; Note if the old ROM was overwritten by a new one.
+    bne copy_rom
+
+    lda #1
+    sta old_rom_overwritten
 
     copy_rom:
 
@@ -211,7 +207,7 @@ boot_code:
 
     lda roms_read       ; If one or more ROMs were loaded then boot them.
     cmp #1
-    bcs boot
+    bcs launch_rom
 
     sei
     lda old_rom         ; Restore the previously paged ROM.
@@ -221,47 +217,21 @@ boot_code:
 
     rts
 
-boot:
+launch_rom:
 
-    sei
+    jsr write_rom_entries
 
-    ldx old_rom
-    lda #0              ; Clear the ROM entry for the ROM paged in when this
-    sta $2a0,x          ; file was loaded, assuming it was the filing system.
+    lda old_rom_overwritten     ; If the old ROM was overwritten then reset
+    bne reset                   ; to allow the new one to initialise itself.
 
-    ; Write the entries for the ROM(s) copied into sideways RAM.
+autoboot:
+    lda #$8f            ; Auto-boot service call
+    ldx #3
+    ldy #0
+    jmp $fff4
 
-    lda rom_number      ; After reading one ROM the value was changed to refer
-    eor #1              ; to the companion bank, so change it back.
-    tax
-    ldy roms_read
-
-    write_entries:
-
-        stx $f4             ; Select the ROM bank.
-        stx $fe05
-
-        lda $8006           ; Copy the ROM type into the ROM table.
-        sta $2a0,x
-
-        txa
-        eor #1
-        tax
-
-        dey
-        cpy #0
-        bne write_entries
-
-    cli
+reset:
     jmp ($fffc)
-
-;    lda #141            ; *ROM
-;    jsr $fff4
-;
-;    lda #$8f            ; Auto-boot
-;    ldx #3
-;    ldy #0
-;    jmp $fff4
 
 file_block:
 .byte 0, 0          ; address of name string
@@ -317,3 +287,57 @@ crlf:
     jsr $ffee
     lda #10
     jmp $ffee
+
+select_ram:             ; A=ROM number
+
+    and #1
+    bne high_bank
+
+    lda #1
+    sta $fcd0
+    jmp select_ram_exit
+
+    high_bank:
+
+    lda #1
+    sta $fcd1
+
+    select_ram_exit:
+    rts
+
+write_rom_entries:
+
+    ; Write the entries for the ROM(s) copied into sideways RAM.
+
+    sei
+
+    ldx old_rom
+    lda #0              ; Clear the ROM entry for the ROM paged in when this
+    sta $2a0,x          ; file was loaded, assuming it was the filing system.
+
+    lda rom_number      ; After reading one ROM the value was changed to refer
+    eor #1              ; to the companion bank, so change it back.
+    tax
+    ldy roms_read
+
+    write_entries:
+
+        stx $f4             ; Select the ROM bank.
+        stx $fe05
+
+        txa                 ; Enable the RAM bank.
+        jsr select_ram
+
+        lda $8006           ; Copy the ROM type into the ROM table.
+        sta $2a0,x
+
+        txa
+        eor #1
+        tax
+
+        dey
+        cpy #0
+        bne write_entries
+
+    cli
+    rts
