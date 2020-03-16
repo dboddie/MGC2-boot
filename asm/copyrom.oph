@@ -98,10 +98,19 @@ ldx #$12        ; initialise filing system
 ldy #$04        ; look for DFS
 jsr $fff4
 
-lda #$8f        ; service call
-ldx #$03        ; auto-boot
-ldy #$00        ; look for !BOOT
-jmp $fff4
+; This works but leaves the auto-boot on Break effect set for subsequent Breaks.
+lda #255
+ldy #$f7        ; Clear bit 3 (cause an auto-boot)
+ldx #0
+jsr $fff4
+
+jmp ($fffc)
+
+; This works but can lead to BASIC errors on or after file system initialisation.
+;lda #$8f        ; service call
+;ldx #$03        ; auto-boot
+;ldy #$00        ; look for !BOOT
+;jmp $fff4
 
 ; MMFS ROM data is appended after this label:
 

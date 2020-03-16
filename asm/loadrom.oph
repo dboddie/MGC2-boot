@@ -1,0 +1,176 @@
+; Copyright (C) 2020 David Boddie <david@boddie.org.uk>
+;
+; This program is free software: you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation, either version 3 of the License, or
+; (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+.org $1000
+
+.alias cli_block $70
+.alias rom_number $74
+.alias cli_y $75
+.alias bank_address $76
+
+; Get the address of the command line. This doesn't work for the cassette
+; filing system.
+
+lda #1
+ldx #cli_block              ; address of the CLI block
+ldy #0
+jsr $ffda
+
+; Read the ROM number as a single digit hexadecimal number.
+ldy #0
+lda (cli_block),y
+
+cmp #48                     ; < "0" -> exit
+bcc exit
+cmp #71                     ; > "F" -> exit
+bcs exit
+cmp #58                     ; <= "9"
+bcc store_rom_number_0_to_9
+cmp #65                     ; >= "A"
+bcs store_rom_number_A_to_F
+
+exit:
+rts
+
+store_rom_number_A_to_F:
+; 65 <= byte < 71
+sec
+sbc #7                      ; 58 <= byte < 64
+
+store_rom_number_0_to_9:    ; 48 <= byte < 64
+sec
+sbc #48                     ; 0 <= byte < 16
+clc
+
+sta rom_number
+
+iny
+lda (cli_block),y
+cmp #32                     ; Expect a space.
+bne exit
+
+iny
+sty cli_y
+
+name_loop:
+
+    lda (cli_block),y
+    cmp #32
+    beq name_loop_end
+    cmp #13
+    beq name_loop_end
+    iny
+    jmp name_loop
+
+name_loop_end:
+cpy #2
+beq exit
+
+; Ensure that the file name is terminated in the buffer.
+lda #13
+sta (cli_block),y
+
+; Store the address of the file name in the file block.
+clc
+lda cli_y
+adc cli_block
+sta file_block
+lda [cli_block + 1]
+adc #0
+sta [file_block + 1]
+clc
+
+; Load the file into memory.
+lda #255
+ldx #<file_block
+ldy #>file_block
+jsr $ffdd
+
+; Disable interrupts until we have selected the sideways RAM and ROM bank.
+sei
+
+; Make the corresponding bank of sideways RAM visible.
+lda rom_number
+and #1
+bne high_bank
+
+lda #1
+sta $fcd0
+jmp select_rom
+
+high_bank:
+
+lda #1
+sta $fcd1
+
+select_rom:
+
+lda $f4
+pha
+
+lda #12
+sta $f4
+sta $fe05
+lda rom_number
+sta $f4
+sta $fe05
+
+copy_rom:
+
+lda #$00
+sta $70
+lda #$20
+sta $71
+lda #$00
+sta $72
+lda #$80
+sta $73
+
+ldy #0
+
+copy:
+    lda ($70),y
+    sta ($72),y
+
+    inc $70
+    bne copy_0
+    inc $71
+
+    copy_0:
+    inc $72
+    bne copy
+    inc $73
+
+    lda $73
+    cmp #$c0
+    bne copy
+
+lda #$82    ; Write an entry into the ROM table.
+ldx $f4
+sta $2a0,x
+
+pla             ; Restore the previously paged ROM.
+sta $f4
+sta $fe05
+
+cli
+rts
+
+file_block:
+.byte 0, 0          ; address of name string
+.byte 0, $20, 0, 0  ; load address
+.byte 0, 0, 0, 0    ; execution address
+.byte 0, 0, 0, 0    ; length of file
+.byte 0, 0, 0, 0    ; end address of file
