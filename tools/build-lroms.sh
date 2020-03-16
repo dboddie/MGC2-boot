@@ -3,6 +3,7 @@
 import os
 import makedfs
 
+os.system("ophis -o resources/LROM asm/loadrom.oph")
 os.system("ophis -o resources/LROMS asm/loadroms.oph")
 
 d = makedfs.Disk()
@@ -10,7 +11,8 @@ d.new()
 
 c = d.catalogue()
 
-import_files = [("$.LROMS", "resources/LROMS", 0x1000, 0x1000)]
+import_files = [("$.LROM", "resources/LROM", 0x1000, 0x1000),
+                ("$.LROMS", "resources/LROMS", 0x1000, 0x1000)]
 files = []
 
 for name, file_name, load, exec_ in import_files:
