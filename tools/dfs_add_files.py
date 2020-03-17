@@ -29,7 +29,9 @@ if __name__ == "__main__":
                 title = metadata[6:].lstrip()
             continue
         
-        file_name, name, load, exec_ = line.split()
+        pieces = line.split()
+        file_name = " ".join(pieces[:-3])
+        name, load, exec_ = pieces[-3:]
         load, exec_ = int(load, 16), int(exec_, 16)
         
         if name == "!BOOT":
