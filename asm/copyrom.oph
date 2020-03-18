@@ -98,19 +98,43 @@ ldx #$12        ; initialise filing system
 ldy #$04        ; look for DFS
 jsr $fff4
 
-; This works but leaves the auto-boot on Break effect set for subsequent Breaks.
-lda #255
-ldy #$f7        ; Clear bit 3 (cause an auto-boot)
-ldx #0
-jsr $fff4
-
-jmp ($fffc)
-
 ; This works but can lead to BASIC errors on or after file system initialisation.
 ;lda #$8f        ; service call
 ;ldx #$03        ; auto-boot
 ;ldy #$00        ; look for !BOOT
 ;jmp $fff4
+
+; This works but leaves the auto-boot on Break effect set for subsequent Breaks.
+;lda #255
+;ldy #$f7        ; Clear bit 3 (cause an auto-boot)
+;ldx #0
+;jsr $fff4
+;jmp ($fffc)
+
+; This works but is also persistent.
+;ldx #<key10_text
+;ldy #>key10_text
+;jsr $fff7       ; (OSCLI - KEY10 <command>|M)
+;jmp ($fffc)
+
+;key10_text:
+;.byte "KEY10 ", "*DBOOT 0", "|M", 13
+
+lda #$8a
+ldx #0          ; (keyboard buffer)
+ldy #$89        ; (fn key 9)
+jsr $fff4       ; (OSBYTE 8a - insert character into buffer)
+ldx #<key9_text
+ldy #>key9_text
+jsr $fff7       ; (OSCLI - KEY9 <command>|M)
+ldx #<basic_text
+ldy #>basic_text
+jmp $fff7       ; (OSCLI - BASIC)
+
+basic_text:
+.byte "BASIC", 13
+key9_text:
+.byte "KEY9 ", "*FX143,3,0", "|M", 13
 
 ; MMFS ROM data is appended after this label:
 
