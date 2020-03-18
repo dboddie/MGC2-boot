@@ -103,6 +103,11 @@ jsr $ffdd
 ; Disable interrupts until we have selected the sideways RAM and ROM bank.
 sei
 
+; Disable the ROM entry for the bank.
+ldx rom_number
+lda #0
+sta $2a0,x
+
 ; Make the corresponding bank of sideways RAM visible.
 lda rom_number
 and #1
@@ -110,12 +115,19 @@ bne high_bank
 
 lda rom_ram
 sta $fcd0
+cmp #0
+bne select_rom
+    sta $fcdc       ; Unlock the low ROM bank.
+
 jmp select_rom
 
 high_bank:
 
 lda rom_ram
 sta $fcd1
+cmp #0
+bne select_rom
+    sta $fcde       ; Unlock the high ROM bank.
 
 select_rom:
 
@@ -159,7 +171,7 @@ copy:
     cmp #$c0
     bne copy
 
-lda #$82    ; Write an entry into the ROM table.
+lda #$82        ; Write an entry into the ROM table.
 ldx $f4
 sta $2a0,x
 
@@ -260,13 +272,15 @@ exit_usage:
         lda usage,x
         jsr $ffee
         inx
-        cmp #13
+        cpx #[usage_end - usage]
         bne exit_usage_loop
 
     rts
 
 usage:
 .byte "Usage: LROM <name> <ROM bank> [0|1]", 10, 13
+.byte "Version 1.0", 10, 13
+usage_end:
 
 print_name:
 
