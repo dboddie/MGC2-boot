@@ -515,7 +515,7 @@ if __name__ == "__main__":
     
     details = {
         "title": '.byte "Mega Games Cartridge 2", 0',
-        "version string": '.byte "1.0", 0',
+        "version string": '.byte "1.1", 0',
         "version": ".byte 1",
         "copyright": '.byte "(C) Retro Hardware", 0',
         "rom name": '.byte "MGC2", 13',
