@@ -43,7 +43,6 @@ jsr read_name
 bne +
     jmp exit_usage          ; Exit if no name was read.
 
-; Ensure that the file name is terminated in the buffer.
 * jsr skip_spaces
 
 ; Read the ROM number as a single digit hexadecimal number.
@@ -75,14 +74,11 @@ jmp exit_usage          ; Unexpected trailing characters
 
 load_file:
 
-ldy cli_file_end
-sta (cli_block),y
-
 ldx #[loading - strings]
 jsr print_string
 jsr print_name
-lda #10
-jsr $ffee
+ldx #[crlf - strings]
+jsr print_string
 
 ; Store the address of the file name in the file block.
 clc
@@ -288,8 +284,8 @@ print_name:
     *   lda (cli_block),y
         jsr $ffee
         iny
-        cmp #13
-        bne -
+        cmp #33
+        bcs -
 
     rts
 
