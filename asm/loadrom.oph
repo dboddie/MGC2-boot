@@ -28,40 +28,15 @@ ldx #cli_block              ; address of the CLI block
 ldy #0
 jsr $ffda
 
-; Read the ROM number as a single digit hexadecimal number.
 ldy #0
-lda (cli_block),y
 
-cmp #48                     ; < "0" -> exit
-bcc exit
-cmp #71                     ; > "F" -> exit
-bcs exit
-cmp #58                     ; <= "9"
-bcc store_rom_number_0_to_9
-cmp #65                     ; >= "A"
-bcs store_rom_number_A_to_F
+; Read the ROM number as a single digit hexadecimal number.
+jsr read_hex_number
+bcc +
+jmp exit
+* sta rom_number
+jsr skip_spaces
 
-exit:
-rts
-
-store_rom_number_A_to_F:
-; 65 <= byte < 71
-sec
-sbc #7                      ; 58 <= byte < 64
-
-store_rom_number_0_to_9:    ; 48 <= byte < 64
-sec
-sbc #48                     ; 0 <= byte < 16
-clc
-
-sta rom_number
-
-iny
-lda (cli_block),y
-cmp #32                     ; Expect a space.
-bne exit
-
-iny
 sty cli_y
 
 name_loop:
@@ -166,6 +141,7 @@ sta $f4
 sta $fe05
 
 cli
+exit:
 rts
 
 file_block:
@@ -174,3 +150,55 @@ file_block:
 .byte 0, 0, 0, 0    ; execution address
 .byte 0, 0, 0, 0    ; length of file
 .byte 0, 0, 0, 0    ; end address of file
+
+read_hex_number:    ; Reads a single digit hexadecimal number
+                    ; Entry: Y=current index into the CLI block
+                    ; Exit:  Y=the character after the number
+
+lda (cli_block),y
+
+cmp #48                     ; < "0" -> exit
+bcc read_hex_number_fail
+cmp #71                     ; > "F" -> exit
+bcs read_hex_number_fail
+cmp #58                     ; <= "9"
+bcc store_rom_number_0_to_9
+cmp #65                     ; >= "A"
+bcs store_rom_number_A_to_F
+
+read_hex_number_fail:
+sec
+rts
+
+store_rom_number_A_to_F:
+; 65 <= byte < 71
+sec
+sbc #7                      ; 58 <= byte < 64
+
+store_rom_number_0_to_9:    ; 48 <= byte < 64
+sec
+sbc #48                     ; 0 <= byte < 16
+clc
+
+pha
+
+iny
+pla
+read_hex_number_exit:
+clc
+rts
+
+skip_spaces:
+
+    ldx #0
+    skip_spaces_loop:
+
+        lda (cli_block),y
+        cmp #32
+        bne skip_spaces_end
+        iny
+        inx
+        jmp skip_spaces_loop
+
+    skip_spaces_end:
+    rts
