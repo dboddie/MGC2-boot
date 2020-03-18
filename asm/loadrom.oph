@@ -17,8 +17,10 @@
 
 .alias cli_block $70
 .alias rom_number $74
-.alias cli_y $75
-.alias bank_address $76
+.alias cli_file_start $75
+.alias cli_file_end $76
+.alias bank_address $77
+.alias rom_ram $78
 
 ; Get the address of the command line. This doesn't work for the cassette
 ; filing system.
@@ -28,38 +30,63 @@ ldx #cli_block              ; address of the CLI block
 ldy #0
 jsr $ffda
 
+lda #0
+sta rom_number
+lda #1
+sta rom_ram
+
+; Start parsing the command line arguments.
 ldy #0
+jsr skip_spaces
+
+jsr read_name
+bne +
+    jmp exit_usage          ; Exit if no name was read.
+
+; Ensure that the file name is terminated in the buffer.
+* jsr skip_spaces
 
 ; Read the ROM number as a single digit hexadecimal number.
 jsr read_hex_number
 bcc +
-jmp exit
+    jmp exit_usage      ; C is set if no number was read
+
 * sta rom_number
+
+lda (cli_block),y
+cmp #13
+beq load_file           ; If no more arguments
+
 jsr skip_spaces
 
-sty cli_y
+; Read the ROM-RAM index as a single digit hexadecimal number.
+jsr read_hex_number
+bcc +
+    jmp exit_usage      ; C is set if no number was read
+* sta rom_ram
 
-name_loop:
+jsr skip_spaces         ; Skip any trailing spaces.
 
-    lda (cli_block),y
-    cmp #32
-    beq name_loop_end
-    cmp #13
-    beq name_loop_end
-    iny
-    jmp name_loop
+lda (cli_block),y
+cmp #13
+beq load_file           ; If no more arguments
 
-name_loop_end:
-cpy #2
-beq exit
+jmp exit_usage          ; Unexpected trailing characters
 
-; Ensure that the file name is terminated in the buffer.
-lda #13
+load_file:
+
+ldy cli_file_end
 sta (cli_block),y
+
+ldx #[loading - strings]
+jsr print_string
+jsr print_name
+lda #10
+jsr $ffee
 
 ; Store the address of the file name in the file block.
 clc
-lda cli_y
+lda cli_file_start
 adc cli_block
 sta file_block
 lda [cli_block + 1]
@@ -81,13 +108,13 @@ lda rom_number
 and #1
 bne high_bank
 
-lda #1
+lda rom_ram
 sta $fcd0
 jmp select_rom
 
 high_bank:
 
-lda #1
+lda rom_ram
 sta $fcd1
 
 select_rom:
@@ -153,40 +180,41 @@ file_block:
 
 read_hex_number:    ; Reads a single digit hexadecimal number
                     ; Entry: Y=current index into the CLI block
-                    ; Exit:  Y=the character after the number
+                    ; Exit:  Y=the character after the number,
+                    ;        C is set if no number was read
 
-lda (cli_block),y
+    lda (cli_block),y
 
-cmp #48                     ; < "0" -> exit
-bcc read_hex_number_fail
-cmp #71                     ; > "F" -> exit
-bcs read_hex_number_fail
-cmp #58                     ; <= "9"
-bcc store_rom_number_0_to_9
-cmp #65                     ; >= "A"
-bcs store_rom_number_A_to_F
+    cmp #48                     ; < "0" -> exit
+    bcc read_hex_number_fail
+    cmp #71                     ; > "F" -> exit
+    bcs read_hex_number_fail
+    cmp #58                     ; <= "9"
+    bcc store_rom_number_0_to_9
+    cmp #65                     ; >= "A"
+    bcs store_rom_number_A_to_F
 
-read_hex_number_fail:
-sec
-rts
+    read_hex_number_fail:
+    sec
+    rts
 
-store_rom_number_A_to_F:
-; 65 <= byte < 71
-sec
-sbc #7                      ; 58 <= byte < 64
+    store_rom_number_A_to_F:
+    ; 65 <= byte < 71
+    sec
+    sbc #7                      ; 58 <= byte < 64
 
-store_rom_number_0_to_9:    ; 48 <= byte < 64
-sec
-sbc #48                     ; 0 <= byte < 16
-clc
+    store_rom_number_0_to_9:    ; 48 <= byte < 64
+    sec
+    sbc #48                     ; 0 <= byte < 16
+    clc
 
-pha
+    pha
 
-iny
-pla
-read_hex_number_exit:
-clc
-rts
+    iny
+    pla
+    read_hex_number_exit:
+    clc
+    rts
 
 skip_spaces:
 
@@ -202,3 +230,69 @@ skip_spaces:
 
     skip_spaces_end:
     rts
+
+read_name:          ; Entry: Y=index into the CLI block
+                    ; Exit:  A=terminating character
+                    ;        Y=index of the terminating character,
+                    ;        Z set if no name
+
+    sty cli_file_start
+
+    name_loop:
+
+        lda (cli_block),y
+        cmp #32
+        beq name_loop_end
+        cmp #13
+        beq name_loop_end
+        iny
+        jmp name_loop
+
+    name_loop_end:
+    sty cli_file_end
+    cpy cli_file_start
+    rts
+
+exit_usage:
+
+    ldx #0
+    exit_usage_loop:
+        lda usage,x
+        jsr $ffee
+        inx
+        cmp #13
+        bne exit_usage_loop
+
+    rts
+
+usage:
+.byte "Usage: LROM <name> <ROM bank> [0|1]", 10, 13
+
+print_name:
+
+    ldy cli_file_start
+    *   lda (cli_block),y
+        jsr $ffee
+        iny
+        cmp #13
+        bne -
+
+    rts
+
+print_string:   ; X=index into the strings below
+
+    print_string_loop:
+        lda strings,x
+        cmp #0
+        beq +
+        jsr $ffee
+        inx
+        jmp print_string_loop
+
+*   rts
+
+strings:
+loading:
+.byte "Loading ", 0
+crlf:
+.byte 10, 13, 0
