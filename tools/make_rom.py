@@ -505,12 +505,13 @@ def get_data_address(header_file, rom_file):
 
 
 def usage():
-    sys.stderr.write("Usage: %s\n" % sys.argv[0])
+    sys.stderr.write("Usage: %s [--minimal]\n" % sys.argv[0])
     sys.exit(1)
 
 if __name__ == "__main__":
 
     args = sys.argv[:]
+
     indices = []
     
     details = {
@@ -522,19 +523,22 @@ if __name__ == "__main__":
         }
     
     # Include the title screen and the bootstrap program.
-    files = ["TITLE", "COPYROM"]
-    decomp_addrs = [0x2e00, 0x1000]
-    rom_file = "MGC2.rom"
-    
-    header_template = open("asm/romfs-template.oph").read()
+    if "--minimal" in args:
+        files = ["COPYROM"]
+        decomp_addrs = [0x1000]
+        rom_file = "MGC2-no-splash.rom"
+        header_template = open("asm/romfs-template-no-splash.oph").read()
+    else:
+        files = ["TITLE", "COPYROM"]
+        decomp_addrs = [0x2e00, 0x1000]
+        rom_file = "MGC2.rom"
+        header_template = open("asm/romfs-template.oph").read()
     
     # Calculate the starting address of the ROM data by assembling the ROM
     # template files.
-    minimal_header_template = open("asm/romfs-template.oph").read()
-    
     header = header_template % details
     
-    data_address = get_data_address(minimal_header_template % details, rom_file)
+    data_address = get_data_address(header_template % details, rom_file)
     
     # Convert the files to ROM data.
     convert_files(files, decomp_addrs, data_address, header, details, rom_file)

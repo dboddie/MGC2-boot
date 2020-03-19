@@ -19,3 +19,4 @@ rm resources/COPYFN
 
 python tools/make_title.py
 python tools/make_rom.py
+python tools/make_rom.py --minimal
