@@ -22,8 +22,13 @@ import makedfs
 
 if __name__ == "__main__":
 
+    args = sys.argv[:]
+    
+    append_files = "-a" in args
+    if append_files: args.remove("-a")
+    
     if len(sys.argv) != 3:
-        sys.stderr.write("Usage: %s <index file> <SSD file>\n" % sys.argv[0])
+        sys.stderr.write("Usage: %s [-a] <index file> <SSD file>\n" % sys.argv[0])
         sys.exit(1)
     
     index_file = sys.argv[1]
@@ -66,13 +71,13 @@ if __name__ == "__main__":
         file_names.append((file_name, name, load, exec_, None))
     
     d = makedfs.Disk()
-    if ssd_exists:
+    if ssd_exists and append_files:
         d.open(open(ssd_file, "r+wb"))
     else:
         d.new()
     
     c = d.catalogue()
-    if ssd_exists:
+    if ssd_exists and append_files:
         old_title, files = c.read()
     else:
         files = []
@@ -87,7 +92,7 @@ if __name__ == "__main__":
     c.boot_option = boot_option
     c.write(title, files)
     
-    if not ssd_exists:
+    if not ssd_exists or not append_files:
         d.file.seek(0, 0)
         open(ssd_file, "wb").write(d.file.read())
     
