@@ -123,14 +123,10 @@ read_file_loop:
     copy:
         lda ($80),y
         sta ($82),y
-
-        inc $80
-        bne copy_0
-        inc $81
-
-        copy_0:
-        inc $82
+        iny
         bne copy
+
+        inc $81
         inc $83
 
         lda $83

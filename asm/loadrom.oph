@@ -153,14 +153,10 @@ ldy #0
 copy:
     lda ($70),y
     sta ($72),y
-
-    inc $70
-    bne copy_0
-    inc $71
-
-    copy_0:
-    inc $72
+    iny
     bne copy
+
+    inc $71
     inc $73
 
     lda $73
