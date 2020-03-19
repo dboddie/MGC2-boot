@@ -1,0 +1,682 @@
+; Copyright (C) 2020 David Boddie <david@boddie.org.uk>
+;
+; This program is free software: you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation, either version 3 of the License, or
+; (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+.org $8000
+.alias current_paged_rom $f4
+.alias current_rom $f5
+.alias exported_rom_pointer $f6
+.alias exported_rom_pointer_low $f6
+.alias exported_rom_pointer_high $f7
+.alias OSRDRM $ffb9
+
+rom_start:
+.byte 0, 0, 0   ; null language entry
+jmp service_entry
+
+; ROM type
+.byte $82       ; 6502 code (2), language ($40), service ($80)
+
+copyright_offset:
+.byte [copyright_string - rom_start - 1]
+
+; Version
+.byte 1
+
+; Title string
+.byte "MGC 2 Splash 1.0", 0
+
+; Version string
+.byte "1.1", 0
+
+copyright_string:
+.byte "(C) 2020 David Boddie", 0
+
+service_entry:
+
+    ; Code to call a check for the ROM's star command.
+    cmp #4
+    beq service_command
+    cmp #9
+    beq service_help
+
+    service_entry_exit:
+    rts
+
+pre_rom_name:
+.byte 10
+rom_name:
+.byte "MGC2TITLE", 13
+.byte 10
+rom_name_end:
+
+claim:
+    pla
+    lda #0
+    rts
+
+exit:
+    pla
+    rts
+
+service_help:
+
+    txa
+    pha
+
+    lda ($f2),y
+    cmp #13
+    bne service_help_not_claimed
+
+    ldx #0
+    service_help_loop0:
+        lda pre_rom_name,x
+        jsr $ffee
+        inx
+        cpx #[rom_name_end - pre_rom_name]
+        bne service_help_loop0
+
+    pla
+    tax
+    lda #0
+    rts
+
+service_help_not_claimed:
+
+    pla
+    tax
+    lda #9
+    rts
+
+service_command:
+
+; Code to check for the ROM's name being used as a star command.
+
+    tya                         ; push Y and X registers onto the stack
+    pha
+    txa
+    pha
+
+    ldx #0
+
+    service_command_rom_loop:
+
+        lda ($f2),y
+        cmp #32
+        beq service_command_read_delay
+        cmp rom_name,x
+        bne service_command_not_found
+        iny
+        inx
+        cmp #13
+        bne service_command_rom_loop
+        beq service_command_default_delay
+
+    service_command_read_delay:
+    lda #0
+    sta animation_timer
+    service_command_read_delay_loop:
+        lda ($f2),y
+        iny
+        cmp #13
+        beq service_command_set_delay
+        cmp #32
+        beq service_command_read_delay_loop
+        cmp #48
+        bcc service_command_not_found
+        cmp #58
+        bcs service_command_not_found
+        sec
+        sbc #48     ; ASCII code - 48 ('0') -> 0-9
+        clc
+        sta $70     ; new digit
+
+        asl animation_timer ; old total (n) -> n * 2
+        lda animation_timer
+        asl
+        asl                 ; n * 8
+        adc animation_timer ; n * 10
+        adc $70             ; old total + new digit
+
+        ; If the delay is too large then just use the default delay.
+        bcs service_command_default_delay
+        sta animation_timer
+
+        bcc service_command_read_delay_loop
+
+    service_command_default_delay:
+    lda #initial_animation_timer
+    sta animation_timer
+
+    service_command_set_delay:
+    lda #21
+    ldx #7
+    jsr $fff4           ; *FX21,7 (flush sound channel 3)
+
+    lda #$fd
+    ldx #0
+    ldy #255
+    jsr $fff4
+    cpx #1              ; power up?
+    bne skip_mgc_code
+
+    jsr main_mgc_code
+
+    skip_mgc_code:
+
+    lda #22             ; MODE 6
+    jsr $ffee
+    lda #6
+    jsr $ffee
+
+    pla
+    tax
+    pla
+    tay
+
+    lda #0
+    rts
+
+    service_command_not_found:
+    pla                         ; pop Y and X registers off the stack
+    tax
+    pla
+    tay
+    lda #4                      ; restore A
+    rts
+
+.alias end_scroll_offset 176
+.alias title_palette_start [128 + 68]
+.alias title_palette_finish [128 + 108]
+
+.alias long_field 60
+.alias short_field 59
+
+.alias fields $70
+.alias first_field $70
+.alias second_field $71
+
+.alias frame_counter $72
+.alias text_lines $73
+.alias palette_lines $75
+
+.alias initial_scanlines 1
+.alias most_scanlines 31
+.alias max_scanlines 41
+.alias max_palette_lines_value 129
+.alias max_palette_lines_min 41
+.alias visible_palette_lines_value 100
+.alias visible_palette_lines_max 188
+.alias initial_scroll_offset 0
+.alias initial_palette_offset 27
+.alias initial_animation_timer 250
+
+.alias screen_low $76
+.alias screen_high $77
+
+.alias scroll_offset $78
+.alias max_palette_lines $79
+.alias visible_palette_lines $7a
+.alias palette_counter $7b
+.alias palette_offset $7c
+.alias animation_index $7e
+.alias animation_value0 $84
+.alias animation_value1 $85
+.alias animation_timer $86
+
+; Cycle a full range of palette colours (3 lines per colour, 6 colours,
+; 2 cycles -> 36 lines, with one extra that doesn't seem to mess up the flow).
+;.alias title_palette_start [128 + 68]  ; defined in the mgccode-*.oph files
+;.alias title_palette_finish [128 + 105]; defined in the mgccode-*.oph files
+.alias palette_fe08 $2e00
+.alias palette_fe09 $2f00
+
+main_mgc_code:
+
+    jsr show_message    ; Change to MODE 1 and hide the text cursor.
+
+    jsr copy_title
+
+    sei
+
+    lda #$c0            ; 0x3780 >> 1 (0x3000 + 3*0x280)
+    sta screen_low
+    lda #$1b
+    sta screen_high
+
+    lda #initial_scanlines      ; Number of MODE 3 scanlines to display
+    sta text_lines
+
+    lda #max_palette_lines_value
+    sta max_palette_lines
+    sta palette_lines
+
+    lda #visible_palette_lines_value
+    sta visible_palette_lines
+
+    lda #title_palette_start
+    sta animation_index
+    tax
+    lda palette_fe08,x
+    sta animation_value0
+    lda palette_fe09,x
+    sta animation_value1
+
+    ; Clear the vsync interrupt bit.
+
+    lda $f4
+    ora #$10
+    sta $fe05
+
+    ; Wait until the vsync bit is cleared.
+
+    lda #$04
+    wait0:
+    bit $fe00
+    bne wait0
+
+    ; Wait until the vsync bit is set, indicating the start of a new frame.
+
+    wait1:
+    bit $fe00
+    beq wait1
+
+    lda $f4
+    ora #$10
+    sta $fe05
+
+    calibration:
+
+        jsr calibrate
+        stx $70
+    
+        jsr calibrate
+        stx $71
+
+        lda $70
+        cmp $71
+        beq calibration
+
+    bcs highest_first
+
+    lda #short_field        ; The first value is the lowest, so store a
+    sta first_field         ; slightly lower value than the second value in
+    lda #long_field         ; the first slot.
+    sta second_field
+    bcc pre_loop
+
+    highest_first:
+
+    lda #long_field         ; The first value is the highest, so store a
+    sta first_field         ; slightly lower value in the second slot.
+    lda #short_field
+    sta second_field
+
+    pre_loop:
+
+    ldx #0
+    stx frame_counter
+    lda #initial_scroll_offset  ; Initialise the scroll offset.
+    sta scroll_offset
+    lda #initial_palette_offset ; Initialise the palette offset.
+    sta palette_offset
+
+main_loop:
+
+    lda #$18                ; MODE 3
+    sta $fe07
+    sta $282
+
+    start:
+
+    ldx frame_counter       ; 3 c
+    lda fields,x            ; 4 c
+    tax
+    jsr wait_scanlines
+
+    ldx text_lines
+    jsr wait_scanlines      ; Comment for use with Elkulator.
+    ;jsr block_scanlines    ; Uncomment for use with Elkulator.
+
+    lda #$08                ; MODE 1
+    sta $fe07
+    sta $282
+
+    ldx palette_lines
+    cpx #0
+    beq show_palette
+
+    jsr block_scanlines
+
+    show_palette:
+
+    ldx palette_offset          ; 3 c
+
+    lda text_lines
+    cmp #most_scanlines
+    bne no_palette_correction
+
+    dex
+
+    no_palette_correction:
+
+    lda visible_palette_lines   ; Only perform palette optimisation for some
+    sta palette_counter         ; scanlines. We need time to do other things.
+
+    palette_loop:
+    
+        ; Wait for around 24us (48 cycles) per scanline and block by reading RAM.
+
+        ldy #8                      ; 2 c
+        palette_loop_delay1:
+            dey                     ; 2 c
+            bne palette_loop_delay1 ; 3 c
+
+                                    ; 42 c
+
+        lda palette_fe08,x      ; 4 c
+        sta $fe08               ; 4 c
+        lda palette_fe09,x      ; 4 c
+        sta $fe09               ; 4 c
+
+        inx                     ; 2 c
+
+        dec palette_counter     ; 5 c
+        bne palette_loop        ; 2 c
+
+    lda #$ff
+    sta $fe08
+    sta $fe09
+
+    lda scroll_offset               ; Check whether the scrolling has finished.
+    cmp #end_scroll_offset
+    bcc scroll_down
+
+    jsr animate_title               ; If scrolling has finished then animate
+    jmp count_down                  ; the title and count down to exiting.
+
+    scroll_down:
+    clc
+    adc #2                          ; Scroll down by two scanlines.
+    sta scroll_offset
+
+    lda text_lines
+    cmp #initial_scanlines
+    bne decrease_vcounter
+
+        clc
+        lda screen_high
+        cmp #$3b
+        bne down_one_line
+        lda screen_low
+        cmp #$00
+        bne down_one_line
+
+            lda #$40
+            sta screen_low
+            lda #$14
+            sta screen_high
+            jmp store_screen_address
+
+        down_one_line:
+        clc                     ; Update the screen start address.
+        lda screen_low
+        adc #$40
+        sta screen_low
+        lda screen_high
+        adc #$01
+        sta screen_high
+
+        store_screen_address:
+        lda screen_low
+        sta $fe02
+        lda screen_high
+        sta $fe03
+
+        lda #max_scanlines
+
+        decrease_vcounter:
+        sec                 ; Decrease the number of half scanlines to reveal
+        sbc #10             ; another MODE 3 character row.
+
+    reset_vcounter:
+    sta text_lines
+
+    calculate_remaining_lines:
+
+    lda max_palette_lines           ; Normally the number of lines to blank
+    cmp #max_palette_lines_min      ; would be fixed, but we start with a
+    beq calculate_remaining_lines2  ; higher than required value to hide the
+    sec                             ; MGC title image.
+    sbc #2
+    sta max_palette_lines
+
+    calculate_remaining_lines2:
+    sec                             ; Subtract the number of palette lines
+    sbc text_lines                  ; to blank after the MODE 3 -> 1 change.
+    sta palette_lines
+
+    lda visible_palette_lines
+    cmp #visible_palette_lines_max
+    bne add_visible_lines
+
+    inc palette_offset  ; Only increase the palette offset once the full
+    inc palette_offset  ; scrolling area is visible. This is designed to
+    jmp count_down      ; occur when the top of the visible area has stopped
+                        ; moving.
+    add_visible_lines:
+    adc #2
+    sta visible_palette_lines
+
+    count_down:
+
+    lda animation_timer
+    cmp #0
+    beq end_loop
+
+    next_frame:
+
+    ; Wait for the vsync bit to be set.
+
+    lda #$04                ; 2 c
+    wait2:
+    bit $fe00               ; 4 c
+    beq wait2               ; 3 c
+
+    lda $f4                 ; 3 c
+    ora #$10                ; 2 c
+    sta $fe05               ; 4 c
+
+    lda frame_counter       ; 3 c
+    eor #1                  ; 2 c
+    sta frame_counter       ; 3 c
+
+    jmp main_loop
+
+end_loop:
+
+    cli
+    rts
+
+calibrate:
+
+    ; Count the number of half scanlines to the end of the display. This will
+    ; wrap around in an 8-bit value.
+
+    lda #$04                ; 2 c
+    ldx #0                  ; 2 c
+    calibration_loop:
+
+        ldy #11             ; 2 c
+        delay1:
+            dey             ; 2 c
+            bne delay1      ; 3 c
+
+        inx                 ; 2 c
+
+        ; Continue until the vsync interrupt bit is set again.
+
+        bit $fe00           ; 4 c
+        beq calibration_loop; 3 c
+                            ; (11 * 5) + 2 + 9 = 66
+
+    ; Clear the vsync interrupt bit.
+
+    lda $f4
+    ora #$10
+    sta $fe05
+
+    rts
+
+wait_scanlines:
+
+    wait_loop:
+
+        ; Wait for around 64us (128 cycles) per scanline.
+
+        ldy #23             ; 2 c
+        delay0:
+            dey             ; 2 c
+            bne delay0      ; 3 c
+
+        nop                 ; 2 c
+        dex                 ; 2 c
+        bne wait_loop       ; 3 c
+                            ; (23 * 5) + 2 + 7 = 124
+    rts
+
+block_scanlines:
+
+    block_loop:
+
+        ; Wait for around 24us (48 cycles) per scanline and block by reading RAM.
+
+        ldy #8              ; 2 c
+        delay2:
+            dey             ; 2 c
+            bne delay2      ; 3 c
+
+                            ; 42 c
+        
+        lda $70             ; 3 c
+        dex                 ; 2 c
+        bne block_loop      ; 3 c
+
+    rts                     ; 6 c
+
+show_message:
+
+    ldx #0
+    jsr print_loop
+    jmp blank_palette
+
+blank_palette:
+
+    lda #$ff                ; Blank the palette.
+    sta $fe08
+    sta $fe09
+
+    rts
+
+print_loop:
+    lda text,x
+    jsr $ffee
+    inx
+
+    cpx #[text_end - text]
+    bne print_loop
+
+    rts
+
+animate_title:
+
+    ldx animation_index
+
+    ldy #10
+    animation_title_loop:
+
+    inx
+    cpx #title_palette_finish
+    bne animate_title_next
+
+    ldx #title_palette_start
+
+    animate_title_next:
+
+    lda palette_fe08,x
+    sta $80
+    lda palette_fe09,x
+    sta $81
+
+    lda animation_value0
+    sta palette_fe08,x
+    lda animation_value1
+    sta palette_fe09,x
+
+    lda $80
+    sta animation_value0
+    lda $81
+    sta animation_value1
+
+    dey
+    bne animation_title_loop
+
+    stx animation_index
+    dec animation_timer
+    rts
+
+text:
+.byte 22,1
+cursor_off:
+.byte 23,1,0,0,0,0,0,0,0,0
+text_end:
+
+copy_title:
+
+    lda #>title_data
+    sta $71
+    lda #<title_data
+    cmp #0
+    beq +
+        inc $71
+        lda #0      ; Align the pointer with the start of the following page.
+    sta $70
+
+*   lda #$00
+    sta $72
+    lda #$2e
+    sta $73
+
+    ldx #$2a
+    ldy #0
+
+    copy_title_loop:
+
+*       lda ($70),y
+        sta ($72),y
+        iny
+        bne -
+
+        inc $71
+        inc $73
+
+        dex
+        bne copy_title_loop
+
+    rts
+
+; The title data is appended to the assembled file.
+title_data:
+
+; There may be some padding to align the data with the following page.
