@@ -1,0 +1,5 @@
+# Host file name                DFS name    load    exec
+# Title: MGC2 Boot
+# Boot:  *LROM SPLASH 0\r*MGC2TITLE\r*.\r
+resources/LROM                  LROM        1000    1000
+resources/splash.rom            SPLASH      8000    8000
