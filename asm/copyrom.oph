@@ -60,36 +60,37 @@ jmp boot_code
 
 copy_mmfs:
 
-lda #<data
-sta $70
-lda #>data
-sta $71
-lda #0
-sta $72
-lda #$80
-sta $73
+    lda #>data
+    sta $71
+    lda #<data
+    cmp #0
+    beq +
+        inc $71
+        lda #0      ; Align the pointer with the start of the following page.
+    sta $70
 
-ldy #0
+*   lda #0
+    sta $72
+    lda #$80
+    sta $73
 
-copy:
-    lda ($70),y
-    sta ($72),y
+    ldy #0
 
-    inc $70
-    bne copy_0
-    inc $71
+    copy:
+        lda ($70),y
+        sta ($72),y
+        iny
+        bne copy
 
-    copy_0:
-    inc $72
-    bne copy
-    inc $73
+        inc $71
+        inc $73
 
-    lda $73
-    cmp #$c0
-    bne copy
+        lda $73
+        cmp #$c0
+        bne copy
 
-cli
-rts
+    cli
+    rts
 
 boot_code:
 
@@ -140,3 +141,5 @@ key9_text:
 ; MMFS ROM data is appended after this label:
 
 data:
+
+; There may be some padding to align the data with the following page.

@@ -10,6 +10,7 @@ for name in "MMFS.rom"; do
 done
 
 ophis -o resources/COPYFN asm/copyrom.oph
+python tools/pad_to_page.py resources/COPYFN
 
 # Pad the MMFS ROM.
 python tools/pad_rom.py

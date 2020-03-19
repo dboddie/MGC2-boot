@@ -3,15 +3,9 @@
 set -e
 
 ophis -o resources/temp asm/splash.oph
-python -c 'import os
-d = open("resources/temp", "rb").read()
-l = len(d) % 256
-if l != 0:
-    d += "\x00" * (256 - l)
+python tools/pad_to_page.py resources/temp
 
-d += open("resources/TITLE", "rb").read()
-open("resources/splash.rom", "wb").write(d)
-'
+cat resources/temp resources/TITLE > resources/splash.rom
 rm resources/temp
 
 rm -f disks/mgc2boot.ssd
