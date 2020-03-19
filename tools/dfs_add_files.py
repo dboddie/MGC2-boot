@@ -44,6 +44,10 @@ if __name__ == "__main__":
             metadata = line.lstrip("#").lstrip()
             if metadata.lower().startswith("title:"):
                 title = metadata[6:].lstrip()
+            elif metadata.lower().startswith("boot:"):
+                text = metadata[5:].lstrip().replace('\\r', '\r')
+                file_names.append((None, "$.!BOOT", 0, 0, text))
+                boot_option = 3
             continue
         
         pieces = line.split()
@@ -59,7 +63,7 @@ if __name__ == "__main__":
         
         if "." not in name:
             name = "$." + name
-        file_names.append((file_name, name, load, exec_))
+        file_names.append((file_name, name, load, exec_, None))
     
     d = makedfs.Disk()
     if ssd_exists:
@@ -73,9 +77,11 @@ if __name__ == "__main__":
     else:
         files = []
     
-    for file_name, name, load, exec_ in file_names:
+    for file_name, name, load, exec_, data in file_names:
     
-        data = open(file_name, "rb").read()
+        if not data:
+            data = open(file_name, "rb").read()
+        
         files.append(makedfs.File(name, data, load, exec_, len(data)))
     
     c.boot_option = boot_option
