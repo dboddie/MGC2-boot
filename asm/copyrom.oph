@@ -93,10 +93,11 @@ rts
 
 boot_code:
 
-lda #$8f        ; service call
-ldx #$12        ; initialise filing system
-ldy #$04        ; look for DFS
-jsr $fff4
+; This works and is a reasonable way to find MMFS, though it can also find DFS.
+;lda #$8f        ; service call
+;ldx #$12        ; initialise filing system
+;ldy #$04        ; look for DFS
+;jsr $fff4
 
 ; This works but can lead to BASIC errors on or after file system initialisation.
 ;lda #$8f        ; service call
@@ -134,7 +135,7 @@ jmp $fff7       ; (OSCLI - BASIC)
 basic_text:
 .byte "BASIC", 13
 key9_text:
-.byte "KEY9 ", "*FX143,3,0", "|M", 13
+.byte "KEY9 ", "*MMFS", "|M", "*DBOOT 0", "|M", 13
 
 ; MMFS ROM data is appended after this label:
 
