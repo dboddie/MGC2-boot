@@ -122,21 +122,34 @@ boot_code:
 ;key10_text:
 ;.byte "KEY10 ", "*DBOOT 0", "|M", 13
 
-lda #$8a
-ldx #0          ; (keyboard buffer)
-ldy #$89        ; (fn key 9)
-jsr $fff4       ; (OSBYTE 8a - insert character into buffer)
-ldx #<key9_text
-ldy #>key9_text
-jsr $fff7       ; (OSCLI - KEY9 <command>|M)
-ldx #<basic_text
-ldy #>basic_text
-jmp $fff7       ; (OSCLI - BASIC)
+; This works but is perhaps a bit overengineered.
+;lda #$8a
+;ldx #0          ; (keyboard buffer)
+;ldy #$89        ; (fn key 9)
+;jsr $fff4       ; (OSBYTE 8a - insert character into buffer)
+;ldx #<key9_text
+;ldy #>key9_text
+;jsr $fff7       ; (OSCLI - KEY9 <command>|M)
+;ldx #<basic_text
+;ldy #>basic_text
+;jmp $fff7       ; (OSCLI - BASIC)
 
-basic_text:
-.byte "BASIC", 13
-key9_text:
-.byte "KEY9 ", "*MMFS", "|M", "*DBOOT 0", "|M", 13
+;basic_text:
+;.byte "BASIC", 13
+;key9_text:
+;.byte "KEY9 ", "*MMFS", "|M", "*DBOOT 0", "|M", 13
+
+ldx #<mmfs_text
+ldy #>mmfs_text
+jsr $fff7
+ldx #<dboot_text
+ldy #>dboot_text
+jmp $fff7
+
+mmfs_text:
+.byte "MMFS", 13
+dboot_text:
+.byte "DBOOT 0", 13
 
 ; MMFS ROM data is appended after this label:
 
