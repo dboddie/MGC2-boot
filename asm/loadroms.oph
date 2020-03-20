@@ -145,8 +145,6 @@ read_file_loop:
     sta rom_number
 
     ldy cli_file_end    ; Restore the index into the command line.
-    cpy #13
-        beq finish
     jsr skip_spaces
     cpx #0
         beq finish
@@ -222,12 +220,7 @@ read_hex_number:    ; Reads a single digit hexadecimal number
     sbc #48                     ; 0 <= byte < 16
     clc
 
-    pha
-
     iny
-    pla
-    read_hex_number_exit:
-    clc
     rts
 
 skip_spaces:

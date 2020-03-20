@@ -212,12 +212,7 @@ read_hex_number:    ; Reads a single digit hexadecimal number
     sbc #48                     ; 0 <= byte < 16
     clc
 
-    pha
-
     iny
-    pla
-    read_hex_number_exit:
-    clc
     rts
 
 skip_spaces:
