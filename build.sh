@@ -18,6 +18,9 @@ python tools/pad_rom.py
 cat resources/COPYFN resources/MMFS.rom > resources/COPYROM
 rm resources/COPYFN
 
+# Make a version of the ROM with MMFS and title screen.
 python tools/make_title.py
 python tools/make_rom.py
+
+# Make a minimal version of the ROM with MMFS but no title screen.
 python tools/make_rom.py --minimal
