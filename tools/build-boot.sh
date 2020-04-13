@@ -5,7 +5,8 @@ set -e
 ophis -o resources/temp asm/splash.oph
 python tools/pad_to_page.py resources/temp
 
-cat resources/temp resources/TITLE > resources/splash.rom
+python tools/distance_pair.py --compress resources/TITLE resources/TITLE.cmp
+cat resources/temp resources/TITLE.cmp > resources/splash.rom
 rm resources/temp
 
 ophis -o resources/LROM asm/loadrom.oph

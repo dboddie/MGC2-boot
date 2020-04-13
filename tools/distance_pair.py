@@ -194,12 +194,20 @@ def find_match_in_compressed(output, data, k, i):
 
 def decompress(data, offset_bits = 4, window = "output", stop_at = None):
 
-    offset_mask = (1 << offset_bits) - 1
+    i = 0
     
-    special = data[0]
+    if offset_bits == None:
+        offset_mask = 255 ^ data[i]
+        offset_bits = data[i + 1]
+        i += 2
+    else:
+        offset_mask = (1 << offset_bits) - 1
+    
+    special = data[i]
+    i += 1
+    
     output = []
     
-    i = 1
     while i < len(data):
     
         b = data[i]
@@ -343,13 +351,18 @@ if __name__ == "__main__":
         
         c = compress(data, offset_bits = offset_bits, window = mode)
         print "Compressed:", len(c)
+        
+        offset_mask = (1 << offset_bits) - 1
+        count_mask = 0xff ^ offset_mask
+        cdata = chr(count_mask) + chr(offset_bits) + "".join(map(chr, c))
+        
         try:
-            out_f.write("".join(map(chr, c)))
+            out_f.write(cdata)
         except ValueError:
             hexdump(c)
             raise
         
-        d = decompress(c, offset_bits = offset_bits, window = mode)
+        d = decompress(map(ord, cdata), offset_bits = None, window = mode)
         if do_merge:
             d = unmerge(d)
             data = original_data
@@ -362,7 +375,7 @@ if __name__ == "__main__":
             print "Data at %i compressed incorrectly." % i
             hexdump(data[:i])
             print
-            c, d = decompress(c, mode, stop_at = i)
+            c, d = decompress(c, None, mode, stop_at = i)
             hexdump(c[:i + 3])
     
     else:
