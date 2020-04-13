@@ -651,9 +651,9 @@ copy_title:
     beq +
         inc $71
         lda #0      ; Align the pointer with the start of the following page.
-    sta $70
+*   sta $70
 
-*   lda #$00
+    lda #$00
     sta $72
     lda #$2e
     sta $73
