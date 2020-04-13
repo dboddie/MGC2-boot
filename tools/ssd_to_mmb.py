@@ -195,16 +195,21 @@ class MMB:
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 2:
-        sys.stderr.write("Usage: %s <MMB file> <SSD file>...\n" % sys.argv[0])
+    args = sys.argv[:]
+    
+    append = "-a" in args
+    if append: args.remove("-a")
+    
+    if len(args) < 2:
+        sys.stderr.write("Usage: %s [-a] <MMB file> <SSD file>...\n" % sys.argv[0])
         sys.exit(1)
     
-    mmb_file = sys.argv[1]
-    ssd_files = sys.argv[2:]
+    mmb_file = args[1]
+    ssd_files = args[2:]
     
     mmb = MMB()
     
-    if os.path.exists(mmb_file):
+    if os.path.exists(mmb_file) and append:
         try:
             mmb.open(mmb_file)
         except MMBError as exc:

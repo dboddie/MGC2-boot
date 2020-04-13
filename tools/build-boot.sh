@@ -10,6 +10,7 @@ rm resources/temp
 
 ophis -o resources/LROM asm/loadrom.oph
 ophis -o resources/LROMS asm/loadroms.oph
+ophis -o resources/MROM asm/mrom.oph
 ophis -o resources/MROMS asm/mroms.oph
 
 rm -f disks/mgc2boot.ssd
