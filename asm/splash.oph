@@ -164,16 +164,7 @@ service_command:
     ldx #7
     jsr $fff4           ; *FX21,7 (flush sound channel 3)
 
-    lda #$fd
-    ldx #0
-    ldy #255
-    jsr $fff4
-    cpx #1              ; power up?
-    bne skip_mgc_code
-
     jsr main_mgc_code
-
-    skip_mgc_code:
 
     lda #22             ; MODE 6
     jsr $ffee
