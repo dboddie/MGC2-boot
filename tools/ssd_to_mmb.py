@@ -203,24 +203,30 @@ if __name__ == "__main__":
     if len(args) < 2:
         sys.stderr.write("Usage: %s [-a] <MMB file> <SSD file>...\n" % sys.argv[0])
         sys.exit(1)
+    elif len(args) == 2:
+        show = True
+    else:
+        show = False
     
     mmb_file = args[1]
     ssd_files = args[2:]
     
     mmb = MMB()
     
-    if os.path.exists(mmb_file) and append:
+    if os.path.exists(mmb_file) and (append or show):
         try:
             mmb.open(mmb_file)
         except MMBError as exc:
             sys.stderr.write(exc.message + "\n")
             sys.exit(1)
         
-        if len(sys.argv) == 2:
+        if show:
             mmb.show()
             sys.exit()
     
-    for ssd_file in ssd_files:
-        mmb.add(ssd_file)
+    if not show:
+        for ssd_file in ssd_files:
+            print "Adding", ssd_file
+            mmb.add(ssd_file)
     
     mmb.save(mmb_file)
