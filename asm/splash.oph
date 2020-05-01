@@ -35,13 +35,13 @@ copyright_offset:
 .byte 1
 
 ; Title string
-.byte "MGC 2 Splash 1.0", 0
+.byte "MGC 2 Splash 1.2", 0
 
 ; Version string
-.byte "1.1", 0
+.byte "1.2", 0
 
 copyright_string:
-.byte "(C) 2020 David Boddie", 0
+.byte "(C) 2020 David Boddie and Richard Broadhurst", 0
 
 service_entry:
 
@@ -235,6 +235,24 @@ service_command:
 
 main_mgc_code:
 
+    ; Check the system in use.
+
+    lda #129
+    ldx #0
+    ldy #255
+    jsr $fff4
+    cpx #1
+    beq electron_title
+    cpx #$fd
+    bne not_electron_or_master
+
+    jmp master_title    ; Defined in master.oph
+
+not_electron_or_master:
+    rts
+
+electron_title:
+    
     jsr show_message    ; Change to MODE 1 and hide the text cursor.
 
     sei
@@ -328,8 +346,6 @@ main_loop:
     lda #$18                ; MODE 3
     sta $fe07
     sta $282
-
-    start:
 
     ldx frame_counter       ; 3 c
     lda fields,x            ; 4 c
@@ -657,6 +673,8 @@ copy_title:
     jmp decompress
 
 .include "dp_decode.oph"
+
+.include "master.oph"
 
 ; The title data is appended to the assembled file.
 title_data:

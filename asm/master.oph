@@ -1,0 +1,200 @@
+; Copyright (C) 2020 Richard Broadhurst
+
+.alias OSBYTE $fff4
+.alias OSWRCH $ffEE
+.alias CrtcReg $FE00
+.alias CrtcVal $FE01
+
+.alias BYTES [200*112/4]
+.alias TITLE [$8000 - BYTES]
+.alias START [$8000 - BYTES * 2]
+.alias CLEAR [$8000 - BYTES * 4]
+
+.alias decompress_src $70
+.alias decompress_dst $72
+.alias decompress_tmp $74
+
+BEGIN:
+
+.include "mastertitle.oph"
+
+; rg bt 8 8 8 44 7 5 7 7 2 5 7 5 6 8 6 8 6 8
+; 50 8b CrtcR1HorizontalDisplayed   
+; 83 8b CrtcR2HorizontalSyncPosition
+; 77 7b CrtcR4VerticalTotal(-1)         
+; 28 7b CrtcR6VerticalDisplayed     
+; 52 7b CrtcR7VerticalSyncPosition  
+;  3 5b CrtcR9CharacterScanLines    
+
+;;     crsr   crtc
+;;      off   setup
+sub: .byte 1,  0,  0,  0,  0,  0, 0,           0,           0
+reg: .byte 0,  1,  2,  4,  6,  7, 9,          12,          13
+val: .byte 0, 50, 83, 77, 28, 52, 3, >[CLEAR/8], <[CLEAR/8]
+	
+oswrch1a06:
+	jsr OSWRCH
+        lda #0
+        jsr OSWRCH
+        jsr OSWRCH
+        jsr OSWRCH
+        jsr OSWRCH
+        jsr OSWRCH
+        jmp OSWRCH
+
+do_row:
+	ldx #[200/4] ;; columns
+row:
+	ldy #3
+col:
+	lda (decompress_src),y
+        sta (decompress_dst),y
+	dey
+        bpl col
+	lda decompress_src
+        clc
+        adc #8
+        sta decompress_src
+        bcc +
+        inc decompress_src+1
+*	lda decompress_dst
+        clc
+        adc #8
+        sta decompress_dst
+        bcc +
+        inc decompress_dst+1
+*	dex
+        bne row
+
+	rts
+
+master_title:
+
+	cli ;; for power on boot
+
+	lda #22
+        jsr OSWRCH
+        lda #1
+        jsr OSWRCH ;; MODE 1
+	ldx #>[$3000 - CLEAR]
+        ldy #0
+        tya
+        cls:
+        sta CLEAR,y
+        iny
+        bne cls
+        inc cls + 2
+        dex
+        bne cls
+	lda #19
+        jsr OSBYTE                       ;; *FX 19
+
+	ldx #0
+;	ldx #1
+setup_crtc:
+	lda #23
+        jsr OSWRCH
+        lda sub,x 
+        jsr OSWRCH
+        lda reg,x 
+        jsr OSWRCH
+        lda val,x
+        jsr oswrch1a06
+;	lda reg,x
+;       sta CrtcReg
+;       lda val,x
+;       sta CrtcVal
+	inx
+        cpx #val - reg
+        bne setup_crtc
+
+	lda #<BEGIN
+        sta decompress_src
+	lda #>BEGIN
+        sta decompress_src+1
+	lda #<TITLE
+        sta decompress_dst
+	lda #>TITLE
+        sta decompress_dst+1
+
+.include "beebop.oph" ;; decompress splash to end of screen
+
+	lda #<TITLE
+        sta decompress_src
+	lda #>TITLE
+        sta decompress_src+1
+	lda #<START
+        sta decompress_dst
+	lda #>START
+        sta decompress_dst+1
+
+	lda #[112/8]
+        sta decompress_tmp ;; count
+unzip:
+	jsr do_row
+	lda decompress_src  
+        sec
+        sbc #<[400-4]
+        sta decompress_src
+	lda decompress_src+1
+              sbc #>[400-4]
+              sta decompress_src+1
+	jsr do_row
+	lda decompress_src
+        sec
+        sbc #<4
+        sta decompress_src
+        bcs +
+        dec decompress_src+1
+*	dec decompress_tmp
+        bpl unzip
+
+	lda #<[CLEAR/8]
+        sta decompress_src
+	lda #>[CLEAR/8]
+        sta decompress_src+1
+	lda #[112/4]
+        sta decompress_tmp
+scroll:
+	lda #19
+        jsr OSBYTE                       ;; *FX 19
+	lda #23
+        jsr OSWRCH
+        lda #0
+        jsr OSWRCH
+        lda #12
+        jsr OSWRCH
+        lda decompress_src+1
+        jsr oswrch1a06
+	lda #23
+        jsr OSWRCH
+        lda #0
+        jsr OSWRCH
+        lda #13
+        jsr OSWRCH
+        lda decompress_src  
+        jsr oswrch1a06
+;	lda #12
+;	sta CrtcReg
+;	lda decompress_src+1
+;	sta CrtcVal
+;	lda #13
+;	sta CrtcReg
+;	lda decompress_src  
+;	sta CrtcVal
+
+	lda decompress_src
+        clc
+        adc #[400/8]
+        sta decompress_src
+        bcc +
+        inc decompress_src+1
+*	dec decompress_tmp
+        bpl scroll
+
+;	lda #28 : sta decompress_tmp
+;.wait
+;	lda #19 : jsr OSBYTE                       ;; *FX 19
+;	dec decompress_tmp : bne wait
+
+	rts
